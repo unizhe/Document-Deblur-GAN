@@ -1,0 +1,14 @@
+# --- 忽略系统和缓存文件 ---
+__pycache__/
+*.swp
+
+# --- 忽略数据集文件夹 (根据你的要求) ---
+datasets/patches/train_A/
+datasets/patches/train_B/
+
+# --- 忽略模型权重文件 ---
+# 第一步：忽略 models 文件夹下所有以 netG_epoch_ 开头的 .pth 文件
+models/netG_epoch_*.pth
+
+# 第二步：使用感叹号 (!) 重新“捡回”你想要保留的那个文件
+!models/netG_epoch_100.pth
