@@ -5,7 +5,6 @@ import torch.nn.utils.spectral_norm as spectral_norm
 
 class ResnetGenerator(nn.Module):
     """
-    基于ResNet的生成器 (文档 5.1 节)
     使用 Instance Normalization 替代 Batch Normalization [cite: 86]
     """
     def __init__(self, input_nc=3, output_nc=3, ngf=64, n_blocks=9):
@@ -65,7 +64,7 @@ class ResnetBlock(nn.Module):
 
 class NLayerDiscriminator(nn.Module):
     """
-    PatchGAN 判别器 (文档 5.2 节 [cite: 90])
+    PatchGAN 判别器
     """
     def __init__(self, input_nc=6, ndf=64, n_layers=3):
         super(NLayerDiscriminator, self).__init__()

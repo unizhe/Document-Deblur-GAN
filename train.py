@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F  # [新增] 用于降采样
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
@@ -14,7 +14,7 @@ from models.losses import GANLoss, VGGLoss, OCRPerceptualLoss
 # --- 配置 ---
 BATCH_SIZE = 4
 LR = 0.0002
-EPOCHS = 100        # 建议跑满 100
+EPOCHS = 100  
 WARMUP_EPOCHS = 20 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DATA_DIR = "datasets/patches"
@@ -23,7 +23,6 @@ def get_noisy_input(x, sigma):
     noise = torch.randn_like(x) * sigma
     return x + noise
 
-# [数据集部分保持不变]
 class DeblurDataset(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
@@ -74,8 +73,6 @@ def train():
     dataset = DeblurDataset(DATA_DIR)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
     
-    # [关键修改 1] 恒定噪声，不再衰减
-    # 0.05 的强度足以掩盖细微的像素差异，强迫 D 关注结构
     CONSTANT_SIGMA = 0.05 
     
     step_counter = 0
@@ -96,13 +93,9 @@ def train():
             
             # GAN Loss
             if not is_warmup:
-                # [关键修改 2] 判别器输入降采样
-                # 强制把 256x256 缩放到 128x128 喂给判别器
-                # 这物理上消除了判别器检测"高频伪影"的能力
                 real_A_small = F.interpolate(real_A, scale_factor=0.5, mode='bilinear', align_corners=False)
                 fake_B_small = F.interpolate(fake_B, scale_factor=0.5, mode='bilinear', align_corners=False)
                 
-                # 依然加噪声
                 noisy_real_A = get_noisy_input(real_A_small, CONSTANT_SIGMA)
                 noisy_fake_B = get_noisy_input(fake_B_small, CONSTANT_SIGMA)
                 
@@ -124,9 +117,7 @@ def train():
             
             # --- 2. 训练判别器 ---
             loss_D = torch.tensor(0.0).to(DEVICE)
-            
-            # [调整] 1:3 的比例 (每 3 步 G 更新一次 D)
-            # 因为我们用了降采样，D 变弱了，更新频率可以稍微高一点点防止完全不收敛
+
             if not is_warmup and (step_counter % 3 == 0):
                 optimizer_D.zero_grad()
                 

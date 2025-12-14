@@ -8,7 +8,7 @@ from PIL import Image
 # --- 配置 ---
 MODEL_PATH = "models/netG_epoch_100.pth"
 INPUT_IMAGE = "datasets/origin_blur/6.jpg"
-OUTPUT_IMAGE = "final_restored_clean_paper.png" # 最终完美版
+OUTPUT_IMAGE = "final_restored_clean_paper.png"
 PATCH_SIZE = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,16 +23,12 @@ def normalize_background(img_gray):
     原理：原图 / 估算的背景 = 平整的图
     """
     # 1. 估算背景：使用膨胀操作 (Dilate) 移除黑色文字，只保留亮色背景
-    # 核的大小 (kernel_size) 要大于最大的文字笔画粗细，但小于整体光照变化的范围
-    # 35x35 通常足够覆盖大多数标题字
     dilated_bg = cv2.dilate(img_gray, np.ones((35, 35), np.uint8))
     
     # 2. 高斯模糊：让背景光照图更平滑
     bg_blur = cv2.GaussianBlur(dilated_bg, (15, 15), 0)
     
     # 3. 归一化：(原图 / 背景) * 255
-    # 这一步会把背景变成纯白 (255)，同时保留文字的相对灰度
-    # 避免除以0，加上一个极小值
     norm_img = img_gray.astype(np.float32) / (bg_blur.astype(np.float32) + 1e-5)
     
     # 缩放回 0-255 范围
@@ -43,7 +39,6 @@ def normalize_background(img_gray):
 
 def post_process_smart(img_gray):
     # --- 第一步：修复文字断裂/中空 (GAN 伪影修复) ---
-    # 反转图像，让字变白
     inv_img = 255 - img_gray
     # 闭运算：填补文字内部的黑洞，连接断裂
     kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -52,23 +47,17 @@ def post_process_smart(img_gray):
     repaired = 255 - repaired_inv
 
     # --- 第二步：背景归一化 (解决背景不均一的核心) ---
-    # 这步之后，背景会变得非常干净、均匀
     flat_img = normalize_background(repaired)
     
     # --- 第三步：双边滤波 (去噪) ---
-    # 在背景变平滑后，去除残留的细微颗粒
     denoised = cv2.bilateralFilter(flat_img, d=5, sigmaColor=50, sigmaSpace=50)
 
-    # --- 第四步：最终色阶微调 ---
-    # 现在背景已经是纯白了，我们只需要稍微压暗一下文字，增加对比度
-    # 既然背景已经是255了，highlight 不需要设太低
-    # shadow 设为 80，让深灰色文字变黑
+    # --- 第四步：色阶微调 ---
     table = np.arange(256, dtype=np.float32)
     shadow = 60
-    highlight = 245 # 稍微留一点余地
+    highlight = 245
     table = (table - shadow) * 255 / (highlight - shadow + 1e-5)
-    table = np.clip(table, 0, 255).astype(np.uint8)
-    
+    table = np.clip(table, 0, 255).astype(np.uint8)   
     final = cv2.LUT(denoised, table)
     
     return final
@@ -83,13 +72,11 @@ def inference_optimized():
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,))
     ])
-    
     # 2. 读取图像
     img_origin = cv2.imread(INPUT_IMAGE)
     if img_origin is None: raise ValueError(f"无法读取: {INPUT_IMAGE}")
     img_gray = cv2.cvtColor(img_origin, cv2.COLOR_BGR2GRAY)
     h, w = img_gray.shape
-    
     # 3. 初始化 (平滑拼接)
     canvas = np.zeros((h, w), dtype=np.float32)
     weight_map = np.zeros((h, w), dtype=np.float32)
@@ -125,7 +112,6 @@ def inference_optimized():
     
     print("正在进行背景归一化和智能修复...")
     
-    # --- 调用新的智能处理 ---
     final_result = post_process_smart(raw_result)
     
     cv2.imwrite(OUTPUT_IMAGE, final_result)

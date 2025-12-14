@@ -9,25 +9,18 @@ def generate_blur_map(image_path, save_mask_path="blur_mask.png"):
     h, w = gray.shape
 
     # 2. 计算局部拉普拉斯方差 (Local Laplacian Variance)
-    # 这种方法对边缘敏感，边缘越少（越模糊），值越低
-    # 使用较大的核来平滑噪声
     laplacian = cv2.Laplacian(gray, cv2.CV_64F, ksize=3)
     
     # 3. 计算局部区域的能量 (方差)
-    # 使用均值模糊来模拟局部窗口操作
     win_size = 51 
     abs_lap = np.abs(laplacian)
     local_activity = cv2.blur(abs_lap, (win_size, win_size))
     
     # 4. 归一化并反转 (让模糊区域的值变大，清晰区域变小)
-    # 注意：通常方差大=清晰，方差小=模糊。
-    # 我们希望 Mask 中：白色(255) = 需要强力修复(模糊)，黑色(0) = 轻微修复
     norm_activity = cv2.normalize(local_activity, None, 0, 255, cv2.NORM_MINMAX)
     blur_map = 255 - norm_activity # 反转
     
     # 5. 二值化/阈值处理以分割区域
-    # 这一步是为了生成明确的 "重度模糊区" 和 "轻度模糊区"
-    # 阈值需要根据实际情况微调，这里设为自动 Otsu 或者经验值
     _, binary_mask = cv2.threshold(blur_map.astype(np.uint8), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
     # 6. 形态学操作平滑 Mask (去除噪点)

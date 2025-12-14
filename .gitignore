@@ -3,5 +3,4 @@ __pycache__/
 datasets/patches/train_A/
 datasets/patches/train_B/
 models/netG_epoch_*.pth
-!models/netG_epoch_100.pth
 *.png

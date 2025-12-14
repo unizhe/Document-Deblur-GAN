@@ -5,19 +5,14 @@ import numpy as np
 import random
 from tqdm import tqdm
 
-# --- 配置参数 ---
 GT_DIR = "datasets/origin_gt"
 OUTPUT_DIR = "datasets/patches"
 
-# 裁剪尺寸：建议 512，如果显存吃紧可改为 256
 PATCH_SIZE = 512
 
-# 生成数量：因为去掉了旋转翻转，我们需要更多的随机裁剪来覆盖不同区域
-# 3张高清图 x 每张图切几百次 = 确保覆盖率
 NUM_PATCHES = 3000  
 
 # 模糊半径范围：根据之前的估计，覆盖轻微失焦到严重失焦
-# 偶数步长，range(start, stop, step)
 BLUR_KERNEL_RANGE = range(5, 90, 2) 
 
 def generate_disk_kernel(kernel_size):
@@ -34,18 +29,16 @@ def apply_random_degradation(patch):
     应用随机的物理退化：随机尺寸的散焦模糊 + 辉光 + 噪声
     """
     # 1. 随机选择一个模糊核大小
-    # 这让模型既能学会修轻微模糊，也能学会修严重模糊
     k_size = random.choice(BLUR_KERNEL_RANGE)
     kernel = generate_disk_kernel(k_size)
     
     # 2. 卷积 (物理模糊)
     blurred = cv2.filter2D(patch, -1, kernel, borderType=cv2.BORDER_REFLECT)
     
-    # 3. 模拟辉光 (Bloom) - 大光圈镜头特有
+    # 3. 模拟辉光 (Bloom) 
     blurred = cv2.GaussianBlur(blurred, (5, 5), 0)
     
     # 4. 注入噪声 (模糊越严重，信噪比越低，噪声应越大)
-    # sigma 范围动态调整，例如 5 ~ 25
     max_k = BLUR_KERNEL_RANGE[-1]
     noise_level = 5 + (k_size / max_k) * 20
     sigma = random.uniform(5, noise_level)
@@ -74,7 +67,6 @@ def prepare():
 
     print(f"找到 {len(gt_paths)} 张高清基准图，开始生成数据集...")
     
-    # 读取所有高清图到内存 (如果图特别大，建议放在循环里读)
     gt_images = [cv2.imread(p) for p in gt_paths]
     
     count = 0

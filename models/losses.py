@@ -20,13 +20,12 @@ class GANLoss(nn.Module):
         return self.loss(prediction, target_tensor)
 
 class VGGLoss(nn.Module):
-    """VGG 感知损失 (文档 6.1 节)"""
+    """VGG 感知损失"""
     def __init__(self):
         super(VGGLoss, self).__init__()
         # 使用新版 weights 参数消除警告
         vgg = models.vgg19(weights=models.VGG19_Weights.DEFAULT).features
         
-        # --- 修复点：vgg 本身就是 Sequential，直接转换 list 即可，没有 .layers 属性 ---
         self.loss_network = nn.Sequential(*list(vgg)[:35]).eval()
         
         for param in self.loss_network.parameters():
@@ -38,13 +37,11 @@ class VGGLoss(nn.Module):
 
 class OCRPerceptualLoss(nn.Module):
     """
-    OCR 感知损失 (文档 6.2 节)
-    使用预训练的 ResNet 提取深层语义特征，迫使生成器恢复字符结构。
+    OCR 感知损失
     """
     def __init__(self):
         super(OCRPerceptualLoss, self).__init__()
         # 使用 ResNet50 的深层特征作为 OCR 语义的代理
-        # 使用新版 weights 参数
         resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
         
         # 提取 Layer3 的输出，包含较高级的语义/形状信息
